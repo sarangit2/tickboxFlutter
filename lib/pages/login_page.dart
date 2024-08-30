@@ -25,12 +25,12 @@ class _LoginPageState extends State<LoginPage> {
       email: email,
       password: password,
     );
-
+ print("TESjjjjjjjjjjjjjj");
     User? user = userCredential.user;
-
+print("$user: testing");
     if (user != null) {
       // Récupérer le rôle de l'utilisateur depuis Firestore
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('USERS').doc(user.uid).get();
       String userRole = userDoc['role'];
       print("$userRole:=============================jjjjjjjjjjjjjj");
 
