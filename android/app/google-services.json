@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "161244567953",
+    "project_id": "tick-box-8a323",
+    "storage_bucket": "tick-box-8a323.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:161244567953:android:f3775a92444a29d427e230",
+        "android_client_info": {
+          "package_name": "com.example.tick_box"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCdiZI9VF5l5f4AGL_0zJ2QT2aWf7-SAOk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
