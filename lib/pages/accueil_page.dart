@@ -78,8 +78,9 @@ class _AccueilPageState extends State<AccueilPage> {
     );
   }
 
-  Widget _buildProfileSection() {
+  Widget _buildProfileSection(User? user) {
     return Card(
+      color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Row(
@@ -93,15 +94,20 @@ class _AccueilPageState extends State<AccueilPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'saran soum',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  user?.displayName ?? '',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),
                 ),
-                Text('choudaryaoun121@gmail.com'),
+                Text(user?.email ?? 'Email de l\'utilisateur', style: TextStyle(color: Colors.black54)),
+                SizedBox(height: 8.0),
+                Text(
+                  'Gestion des tickets',
+                  style: TextStyle(color: Colors.black),
+                ),
               ],
             ),
             Spacer(),
             IconButton(
-              icon: Icon(Icons.remove_red_eye),
+              icon: Icon(Icons.remove_red_eye, color: primaryColor),
               onPressed: () {
                 // Gérer la visibilité
               },

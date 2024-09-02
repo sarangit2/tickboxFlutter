@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // Ajoutez cette ligne
 import 'package:flutter/material.dart';
 
 // Page de Tickets avec intégration des Catégories
@@ -10,6 +11,9 @@ class TicketsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Récupérer les informations de l'utilisateur connecté
+    final user = FirebaseAuth.instance.currentUser;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: primaryColor,
@@ -29,7 +33,7 @@ class TicketsPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildProfileSection(),
+            _buildProfileSection(user), // Passer l'utilisateur au widget
             SizedBox(height: 16.0),
             _buildCategorySection(context),
             SizedBox(height: 16.0),
@@ -41,7 +45,7 @@ class TicketsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileSection() {
+  Widget _buildProfileSection(User? user) {
     return Card(
       color: Colors.white,
       child: Padding(
@@ -57,10 +61,10 @@ class TicketsPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'saran soum',
+                  user?.displayName ?? '',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),
                 ),
-                Text('choudaryaoun121@gmail.com', style: TextStyle(color: Colors.black54)),
+                Text(user?.email ?? 'Email de l\'utilisateur', style: TextStyle(color: Colors.black54)),
                 SizedBox(height: 8.0),
                 Text(
                   'Gestion des tickets',
