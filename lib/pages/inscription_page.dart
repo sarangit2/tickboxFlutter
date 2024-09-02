@@ -9,59 +9,65 @@ class InscriptionPage extends StatefulWidget {
 }
 
 class _InscriptionPageState extends State<InscriptionPage> {
+  final _formKey = GlobalKey<FormState>();
   final TextEditingController _nomController = TextEditingController();
   final TextEditingController _prenomController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _telephoneController = TextEditingController();
-   final TextEditingController _roleController = TextEditingController();
+  final TextEditingController _roleController = TextEditingController();
   
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   Future<void> _registerUser() async {
-    String email = _emailController.text.trim();
-    String password = _passwordController.text.trim();
+    if (_formKey.currentState?.validate() ?? false) {
+      String email = _emailController.text.trim();
+      String password = _passwordController.text.trim();
 
-    try {
-      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      User? user = userCredential.user;
-      
-      if (user != null) {
-        // Enregistrer les informations de l'utilisateur dans Firestore
-        await _firestore.collection('USERS').doc(user.uid).set({
-          'nom': _nomController.text.trim(),
-          'prenom': _prenomController.text.trim(),
-          'email': email,
-          'telephone': _telephoneController.text.trim(),
-          'role': _roleController.text.trim(),
-        });
-print("$user: testingFKJFHFHFJHFDHJHFDHFJHDHFJHDFHJ");
-        // Rediriger vers la page de connexion après l'inscription
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => LoginPage()),
+      try {
+        UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+          email: email,
+          password: password,
         );
+
+        User? user = userCredential.user;
+        
+        if (user != null) {
+          // Déterminer le rôle en fonction de l'email
+          String role = _getUserRole(email);
+
+          // Enregistrer les informations de l'utilisateur dans Firestore
+          await _firestore.collection('USERS').doc(user.uid).set({
+            'nom': _nomController.text.trim(),
+            'prenom': _prenomController.text.trim(),
+            'email': email,
+            'telephone': _telephoneController.text.trim(),
+            'role': role,
+          });
+
+          // Rediriger vers la page de connexion après l'inscription
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => LoginPage()),
+          );
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Inscription réussie !')),
+          );
+        }
+      } catch (e) {
+        String errorMessage;
+        if (e is FirebaseAuthException) {
+          errorMessage = e.message ?? 'Erreur inconnue';
+        } else {
+          errorMessage = 'Erreur d\'inscription : ${e.toString()}';
+        }
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Inscription réussie !')),
+          SnackBar(content: Text(errorMessage)),
         );
       }
-    } catch (e) {
-      String errorMessage;
-      if (e is FirebaseAuthException) {
-        errorMessage = e.message ?? 'Erreur inconnue';
-      } else {
-        errorMessage = 'Erreur d\'inscription : ${e.toString()}';
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage)),
-      );
     }
   }
 
@@ -83,64 +89,136 @@ print("$user: testingFKJFHFHFJHFDHJHFDHFJHDHFJHDFHJ");
         leading: IconButton(
           icon: Icon(Icons.arrow_back),
           onPressed: () {
-            Navigator.of(context).pop();
+            Navigator.pop(context);
           },
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        title: Text("Inscription"),
       ),
-      body: ListView(
+      body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24.0),
-        children: [
-          SizedBox(height: 32),
-          Text(
-            'Inscription',
-            style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
-          SizedBox(height: 24),
-          _buildTextField(_nomController, 'Entrer le nom'),
-          SizedBox(height: 16),
-          _buildTextField(_prenomController, 'Entrer le prenom'),
-          SizedBox(height: 16),
-          _buildTextField(_emailController, 'Entrer email'),
-          SizedBox(height: 16),
-          _buildTextField(_passwordController, 'Créer mot de passe', obscureText: true),
-          SizedBox(height: 16),
-          _buildTextField(_telephoneController, 'Entrer téléphone'),
-          SizedBox(height: 32),
-           _buildTextField(_roleController, 'Entrer le role'),
-          SizedBox(height: 16),
-          Center(
-            child: ElevatedButton(
-              onPressed: _registerUser,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue[900],
-                padding: EdgeInsets.symmetric(vertical: 16, horizontal: 48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            children: [
+              SizedBox(height: 32),
+              Center(
+                child: Text(
+                  'Inscription',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF16335F),
+                  ),
                 ),
               ),
-              child: Text(
-                "S'inscrire",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+              SizedBox(height: 24),
+              _buildTextFormField(
+                _nomController,
+                'Entrer le nom',
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Veuillez entrer votre nom';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: 16),
+              _buildTextFormField(
+                _prenomController,
+                'Entrer le prenom',
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Veuillez entrer votre prénom';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: 16),
+              _buildTextFormField(
+                _emailController,
+                'Entrer email',
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Veuillez entrer un email';
+                  } else if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
+                    return 'Veuillez entrer un email valide';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: 16),
+              _buildTextFormField(
+                _passwordController,
+                'Créer mot de passe',
+                obscureText: true,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Veuillez entrer un mot de passe';
+                  } else if (value.length < 6) {
+                    return 'Le mot de passe doit contenir au moins 6 caractères';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: 16),
+              _buildTextFormField(
+                _telephoneController,
+                'Entrer téléphone',
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Veuillez entrer votre numéro de téléphone';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: 32),
+              _buildTextFormField(
+                _roleController,
+                'Entrer le role',
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Veuillez entrer un rôle';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: 16),
+              Center(
+                child: ElevatedButton(
+                  onPressed: _registerUser,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFF16335F),
+                    padding: EdgeInsets.symmetric(vertical: 16, horizontal: 48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    "S'inscrire",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String hintText, {bool obscureText = false}) {
-    return TextField(
+  Widget _buildTextFormField(
+    TextEditingController controller,
+    String hintText, {
+    bool obscureText = false,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
       controller: controller,
       obscureText: obscureText,
       decoration: InputDecoration(
@@ -153,6 +231,7 @@ print("$user: testingFKJFHFHFJHFDHJHFDHFJHDHFJHDFHJ");
         ),
         contentPadding: EdgeInsets.symmetric(vertical: 20, horizontal: 20),
       ),
+      validator: validator,
     );
   }
 }

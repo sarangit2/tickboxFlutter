@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'admin_page.dart';
+import 'accueil_page.dart';
 import 'formateur_page.dart';
 import 'apprenant_page.dart';
 import 'inscription_page.dart';
@@ -16,53 +16,54 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
- Future<void> _loginUser() async {
-  String email = _emailController.text.trim();
-  String password = _passwordController.text.trim();
+  final _formKey = GlobalKey<FormState>();
 
-  try {
-    UserCredential userCredential = await _auth.signInWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
- print("TESjjjjjjjjjjjjjj");
-    User? user = userCredential.user;
-print("$user: testing");
-    if (user != null) {
-      // Récupérer le rôle de l'utilisateur depuis Firestore
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('USERS').doc(user.uid).get();
-      String userRole = userDoc['role'];
-      print("$userRole:=============================jjjjjjjjjjjjjj");
+  Future<void> _loginUser() async {
+    if (_formKey.currentState!.validate()) {
+      String email = _emailController.text.trim();
+      String password = _passwordController.text.trim();
 
-      // Rediriger vers la page appropriée en fonction du rôle
-      if (userRole == 'admin') {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => AdminPage()));
-        print("$userRole:============================= admin");
-      } else if (userRole == 'formateur') {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => FormateurPage()));
-        print("$userRole:============================= formateur");
-      } else {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ApprenantPage()));
-        print("$userRole:============================= apprenant");
+      try {
+        UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+
+        User? user = userCredential.user;
+
+        if (user != null) {
+          // Récupérer le rôle de l'utilisateur depuis Firestore
+          DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('USERS').doc(user.uid).get();
+          String userRole = userDoc['role'];
+
+          // Rediriger vers la page appropriée en fonction du rôle
+          if (userRole == 'admin') {
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => AccueilPage()));
+          } else if (userRole == 'formateur') {
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => FormateurPage()));
+          } else {
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ApprenantPage()));
+          }
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Connexion réussie !')),
+          );
+        }
+      } catch (e) {
+        String errorMessage;
+        if (e is FirebaseAuthException) {
+          errorMessage = e.message ?? 'Erreur inconnue';
+        } else {
+          errorMessage = 'Erreur de connexion : ${e.toString()}';
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage)),
+        );
       }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Connexion réussie !')),
-      );
     }
-  } catch (e) {
-    String errorMessage;
-    if (e is FirebaseAuthException) {
-      errorMessage = e.message ?? 'Erreur inconnue';
-    } else {
-      errorMessage = 'Erreur de connexion : ${e.toString()}';
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(errorMessage)),
-    );
   }
-}
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -77,87 +78,126 @@ print("$user: testing");
         ),
       ),
       body: Center(
-        child: ListView(
-          shrinkWrap: true,
+        child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          children: [
-            const SizedBox(height: 32),
-            const Text(
-              'S\'authentifier',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Center(
-              child: Image.asset(
-                'assets/login.png',
-                height: 150,
-                width: 150,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Center(
-              child: _buildTextField(_emailController, 'Entrer email', width: 300),
-            ),
-            const SizedBox(height: 16),
-            Center(
-              child: _buildTextField(_passwordController, 'Entrer mot de passe', obscureText: true, width: 300),
-            ),
-            const SizedBox(height: 32),
-            Center(
-              child: ElevatedButton(
-                onPressed: _loginUser,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(0xFF16335F), // Nouvelle couleur de fond du bouton
-                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 40),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  "Se connecter",
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                const SizedBox(height: 32),
+                const Text(
+                  'S\'authentifier',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 32,
                     fontWeight: FontWeight.bold,
+                    color: Colors.black,
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Center(
-              child: TextButton(
-                onPressed: () {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (context) => InscriptionPage()),
-                  );
-                },
-                child: Text(
-                  "Vous n'avez pas de compte ? Inscrivez-vous",
-                  style: TextStyle(
-                    color: Colors.blue[900],
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
+                const SizedBox(height: 24),
+                Center(
+                  child: Image.asset(
+                    'assets/login.png',
+                    height: 150,
+                    width: 150,
                   ),
                 ),
-              ),
+                const SizedBox(height: 24),
+                Center(
+                  child: _buildTextField(
+                    controller: _emailController,
+                    hintText: 'Entrer email',
+                    width: 300,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Veuillez entrer un email';
+                      }
+                      // Validation simple d'email
+                      if (!RegExp(r'\S+@\S+\.\S+').hasMatch(value)) {
+                        return 'Veuillez entrer un email valide';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: _buildTextField(
+                    controller: _passwordController,
+                    hintText: 'Entrer mot de passe',
+                    obscureText: true,
+                    width: 300,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Veuillez entrer un mot de passe';
+                      }
+                      if (value.length < 6) {
+                        return 'Le mot de passe doit contenir au moins 6 caractères';
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Center(
+                  child: ElevatedButton(
+                    onPressed: _loginUser,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF16335F), // Nouvelle couleur de fond du bouton
+                      padding: EdgeInsets.symmetric(vertical: 12, horizontal: 40),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      "Se connecter",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (context) => InscriptionPage()),
+                      );
+                    },
+                    child: Text(
+                      "Vous n'avez pas de compte ? Inscrivez-vous",
+                      style: TextStyle(
+                        color: Colors.blue[900],
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 32), // Pour donner un peu d'espace en bas
+              ],
             ),
-            SizedBox(height: 32), // Pour donner un peu d'espace en bas
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String hintText, {bool obscureText = false, double? width}) {
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hintText,
+    bool obscureText = false,
+    double? width,
+    required String? Function(String?) validator,
+  }) {
     return Container(
       width: width,
-      child: TextField(
+      child: TextFormField(
         controller: controller,
         obscureText: obscureText,
         decoration: InputDecoration(
@@ -168,8 +208,9 @@ print("$user: testing");
             borderRadius: BorderRadius.circular(30),
             borderSide: BorderSide.none,
           ),
-          contentPadding: EdgeInsets.symmetric(vertical: 12, horizontal: 20), // Taille réduite
+          contentPadding: EdgeInsets.symmetric(vertical: 12, horizontal: 20),
         ),
+        validator: validator,
       ),
     );
   }

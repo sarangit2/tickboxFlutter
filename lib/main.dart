@@ -20,12 +20,14 @@ void main() async {
     print('Erreur lors de l\'initialisation de Firebase: $e');
   }
   runApp(MyApp());
+  
 }
 
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Gestion des Utilisateurs',
       theme: ThemeData(
         primarySwatch: Colors.blue,
