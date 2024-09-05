@@ -15,8 +15,9 @@ class _InscriptionPageState extends State<InscriptionPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _telephoneController = TextEditingController();
-  final TextEditingController _roleController = TextEditingController();
   
+  String _selectedRole = 'apprenant'; // Valeur par défaut
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -34,8 +35,8 @@ class _InscriptionPageState extends State<InscriptionPage> {
         User? user = userCredential.user;
         
         if (user != null) {
-          // Déterminer le rôle en fonction de l'email
-          String role = _getUserRole(email);
+          // Utiliser le rôle sélectionné
+          String role = _selectedRole;
 
           // Enregistrer les informations de l'utilisateur dans Firestore
           await _firestore.collection('USERS').doc(user.uid).set({
@@ -47,7 +48,7 @@ class _InscriptionPageState extends State<InscriptionPage> {
           });
 
           // Rediriger vers la page de connexion après l'inscription
-          Navigator.pushReplacement(
+          Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => LoginPage()),
           );
@@ -68,16 +69,6 @@ class _InscriptionPageState extends State<InscriptionPage> {
           SnackBar(content: Text(errorMessage)),
         );
       }
-    }
-  }
-
-  String _getUserRole(String email) {
-    if (email == 'admin@example.com') {
-      return 'admin';
-    } else if (email == 'formateur@example.com') {
-      return 'formateur';
-    } else {
-      return 'apprenant';
     }
   }
 
@@ -174,12 +165,31 @@ class _InscriptionPageState extends State<InscriptionPage> {
                 },
               ),
               SizedBox(height: 32),
-              _buildTextFormField(
-                _roleController,
-                'Entrer le role',
+              DropdownButtonFormField<String>(
+                value: _selectedRole,
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+                ),
+                items: ['admin', 'formateur', 'apprenant'].map((role) {
+                  return DropdownMenuItem<String>(
+                    value: role,
+                    child: Text(role),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedRole = value!;
+                  });
+                },
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Veuillez entrer un rôle';
+                    return 'Veuillez sélectionner un rôle';
                   }
                   return null;
                 },

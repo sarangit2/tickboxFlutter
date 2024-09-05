@@ -1,18 +1,31 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Ajoutez cette ligne
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:tick_box/pages/chatPage.dart';
 
-// Page de Tickets avec intégration des Catégories
 class TicketsPage extends StatelessWidget {
   final Color primaryColor = Color(0xFF16335F); // Couleur #16335F
   final Color greenColor = Colors.green;
   final Color orangeColor = Colors.orange;
   final Color redColor = Colors.red;
+// Récupérer les informations de l'utilisateur connecté
+    final user = FirebaseAuth.instance.currentUser;
+
+  Future<String> _getUserRole() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      final role = userDoc['role'];
+      return role;
+    }
+    return 'apprenant'; // Default to 'apprenant' if no user is found
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Récupérer les informations de l'utilisateur connecté
-    final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
       appBar: AppBar(
@@ -33,11 +46,27 @@ class TicketsPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildProfileSection(user), // Passer l'utilisateur au widget
-            SizedBox(height: 16.0),
-            _buildCategorySection(context),
-            SizedBox(height: 16.0),
-            _buildTicketSection(context),
+            FutureBuilder<String>(
+  future: _getUserRole(),
+  builder: (context, snapshot) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return Center(child: CircularProgressIndicator());
+    }
+    final role = snapshot.data ?? 'apprenant';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+          _buildProfileSection(user, context),
+        _buildCategorySection(context, role),
+       
+        SizedBox(height: 16.0),
+        _buildTicketSection(context, role),
+      ],
+    );
+  },
+),
+
+           
           ],
         ),
       ),
@@ -45,7 +74,8 @@ class TicketsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileSection(User? user) {
+  
+ Widget _buildProfileSection(User? user, BuildContext context) {
     return Card(
       color: Colors.white,
       child: Padding(
@@ -76,7 +106,7 @@ class TicketsPage extends StatelessWidget {
             IconButton(
               icon: Icon(Icons.remove_red_eye, color: primaryColor),
               onPressed: () {
-                // Gérer la visibilité
+                _showUserDetailsDialog(context, user);
               },
             ),
           ],
@@ -85,102 +115,281 @@ class TicketsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildCategorySection(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          'Category',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
-        ),
+
+ void _showUserDetailsDialog(BuildContext context, User? user) {
+    if (user == null) return;
+
+    final TextEditingController nameController = TextEditingController(text: user.displayName);
+    final TextEditingController emailController = TextEditingController(text: user.email);
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.close, color: Colors.black),
+                      onPressed: () {
+                        Navigator.of(context).pop(); // Fermer le modal
+                      },
+                    ),
+                  ],
+                ),
+                Text(
+                  'Détails de l\'utilisateur',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 16.0),
+                TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(labelText: 'Nom'),
+                ),
+                SizedBox(height: 8.0),
+                TextField(
+                  controller: emailController,
+                  decoration: InputDecoration(labelText: 'Email'),
+                ),
+                SizedBox(height: 16.0),
+                ElevatedButton(
+                  onPressed: () async {
+                    // Mettre à jour les détails de l'utilisateur
+                    final updatedName = nameController.text;
+                    final updatedEmail = emailController.text;
+
+                    try {
+                      await user.updateProfile(displayName: updatedName);
+                      await user.updateEmail(updatedEmail);
+
+                      // Optionnel : Mettre à jour dans Firestore aussi
+                      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+                        'displayName': updatedName,
+                        'email': updatedEmail,
+                      });
+
+                      Navigator.of(context).pop(); // Fermer le modal
+                    } catch (e) {
+                      // Gérer les erreurs
+                      print(e);
+                    }
+                  },
+                  child: Text('Sauvegarder'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+
+
+Widget _buildCategorySection(BuildContext context, String role) {
+  return Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+       if (role == 'formateur' || role =='admin') // Vérifie si le rôle n'est pas 'apprenant'
+      Text(
+        'Category',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
+      ),
+     
         IconButton(
           icon: Icon(Icons.add_circle, color: greenColor),
           onPressed: () {
             _showAddCategoryDialog(context);
           },
         ),
-      ],
-    );
-  }
+    ],
+  );
+}
 
-  Widget _buildTicketSection(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Tickets',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
-            ),
+Widget _buildTicketSection(BuildContext context, String role) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Tickets',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
+          ),
+          if (role == 'apprenant' || role == 'admin')
             IconButton(
               icon: Icon(Icons.add_circle, color: greenColor),
               onPressed: () {
                 _showAddTicketDialog(context);
               },
             ),
-          ],
-        ),
-        StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance.collection('tickets').snapshots(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(child: CircularProgressIndicator());
-            }
-            if (!snapshot.hasData) {
-              return Center(child: Text('No tickets available.'));
-            }
-            final tickets = snapshot.data!.docs;
+        ],
+      ),
+      StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('tickets').snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: CircularProgressIndicator());
+          }
+          if (!snapshot.hasData) {
+            return Center(child: Text('Pas de tickets disponible.'));
+          }
+          final tickets = snapshot.data!.docs;
 
-            return DataTable(
-              columns: [
-                DataColumn(label: Text('Titre')),
-                DataColumn(label: Text('Date')),
-                DataColumn(label: Text('Statut')),
-                DataColumn(label: Text('Actions')),
-              ],
-              rows: tickets.map((ticket) {
-                return DataRow(
-                  cells: [
-                    DataCell(Text(ticket['title'])),
-                    DataCell(Text(ticket['dateAdded']?.toDate()?.toLocal()?.toString() ?? 'N/A')),
-                    DataCell(Text(ticket['status'])),
-                    DataCell(
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: Icon(Icons.edit, color: primaryColor),
-                            onPressed: () {
-                              _showEditTicketDialog(
-                                context,
-                                ticket.id,
-                                ticket['title'],
-                                ticket['description'],
-                                ticket['category'],
-                                ticket['status'],
-                              );
-                            },
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.delete, color: redColor),
-                            onPressed: () {
-                              _deleteTicket(ticket.id);
-                            },
-                          ),
-                        ],
+          return DataTable(
+            columns: [
+              DataColumn(label: Text('Titre')),
+              DataColumn(label: Text('Date')),
+              DataColumn(label: Text('Statut')),
+              DataColumn(label: Text('Actions')),
+            ],
+            rows: tickets.map((ticket) {
+              final status = ticket['status'];
+              final statusColor = _getStatusColor(status);
+
+              return DataRow(
+                cells: [
+                  DataCell(Text(ticket['title'])),
+                  DataCell(Text(ticket['dateAdded']?.toDate()?.toLocal()?.toString() ?? 'N/A')),
+                  DataCell(
+                    Container(
+                      color: statusColor,
+                      padding: EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+                      child: Text(
+                        status,
+                        style: TextStyle(color: Colors.white),
                       ),
                     ),
+                  ),
+                  DataCell(
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.visibility, color: primaryColor),
+                          onPressed: () {
+                            _showTicketDetailsDialog(
+                              context,
+                              ticket.id,
+                              ticket['title'],
+                              ticket['description'],
+                              ticket['category'],
+                              status,
+                            );
+                          },
+                        ),
+                        if (status == 'Résolu')
+                          IconButton(
+                            icon: Icon(Icons.chat, color: Colors.blue),
+                            onPressed: () {
+                              _startChat(context, ticket['userId']); // Remplacez 'userId' par l'ID utilisateur du ticket
+                            },
+                          ),
+                        IconButton(
+                          icon: Icon(Icons.edit, color: status == 'Résolu' ? Colors.grey : primaryColor),
+                          onPressed: status == 'Résolu' ? null : () {
+                            _showEditTicketDialog(
+                              context,
+                              ticket.id,
+                              ticket['title'],
+                              ticket['description'],
+                              ticket['category'],
+                              status,
+                            );
+                          },
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.delete, color: redColor),
+                          onPressed: () {
+                            _deleteTicket(ticket.id);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
+          );
+        },
+      ),
+    ],
+  );
+}
+
+void _startChat(BuildContext context, String userId) {
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (context) => ChatPage(userId: userId),
+    ),
+  );
+}
+
+
+    Color _getStatusColor(String status) {
+    switch (status) {
+      case 'Résolu':
+        return Colors.green;
+      case 'Soumis':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+ void _showTicketDetailsDialog(BuildContext context, String id, String title, String description, String category, String status) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.close, color: Colors.black),
+                          onPressed: () {
+                            Navigator.of(context).pop(); // Fermer le modal
+                          },
+                        ),
+                      ],
+                    ),
+                    Text(
+                      'Détails du ticket',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 16.0),
+                    Text('Titre: $title', style: TextStyle(fontSize: 16)),
+                    SizedBox(height: 8.0),
+                    Text('Description: $description', style: TextStyle(fontSize: 16)),
+                    SizedBox(height: 8.0),
+                    Text('Catégorie: $category', style: TextStyle(fontSize: 16)),
+                    SizedBox(height: 8.0),
+                    Text('Statut: $status', style: TextStyle(fontSize: 16)),
+                    SizedBox(height: 16.0),
                   ],
-                );
-              }).toList(),
-            );
-          },
-        ),
-      ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
+
 
   Widget _buildBottomNavigationBar() {
     return BottomNavigationBar(
@@ -235,96 +444,135 @@ class TicketsPage extends StatelessWidget {
     );
   }
 
-  void _showAddTicketDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          child: Stack(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        IconButton(
-                          icon: Icon(Icons.close, color: Colors.black),
-                          onPressed: () {
-                            Navigator.of(context).pop(); // Fermer le modal
-                          },
-                        ),
-                      ],
-                    ),
-                    Text(
-                      'Ajouter un ticket',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(height: 16.0),
-                    AddTicketForm(),
-                    SizedBox(height: 16.0),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+ void _showAddTicketDialog(BuildContext context) {
+  final user = FirebaseAuth.instance.currentUser;
 
-  void _showEditTicketDialog(BuildContext context, String id, String title, String description, String category, String status) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          child: Stack(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return Dialog(
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.close, color: Colors.black),
+                        onPressed: () {
+                          Navigator.of(context).pop(); // Fermer le modal
+                        },
+                      ),
+                    ],
+                  ),
+                  Text(
+                    'Ajouter un ticket',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 16.0),
+                  AddTicketForm(userId: user?.uid),
+                  SizedBox(height: 16.0),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+void _showEditTicketDialog(BuildContext context, String id, String title, String description, String category, String status) {
+  final _responseController = TextEditingController(); // Contrôleur pour la réponse
+
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return Dialog(
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.close, color: Colors.black),
+                        onPressed: () {
+                          Navigator.of(context).pop(); // Fermer le modal
+                        },
+                      ),
+                    ],
+                  ),
+                  Text(
+                    'Repondre le ticket',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 16.0),
+                  EditTicketForm(
+                    id: id,
+                    title: title,
+                    description: description,
+                    category: category,
+                    status: status,
+                  ),
+                  if (status != 'Résolu') // Ajouter le champ de réponse si le ticket n'est pas résolu
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        IconButton(
-                          icon: Icon(Icons.close, color: Colors.black),
-                          onPressed: () {
-                            Navigator.of(context).pop(); // Fermer le modal
+                        SizedBox(height: 16.0),
+                        Text(
+                          'Réponse',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        TextFormField(
+                          controller: _responseController,
+                          decoration: InputDecoration(labelText: 'Entrez votre réponse'),
+                          maxLines: 1,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'La réponse est requise';
+                            }
+                            return null;
                           },
                         ),
                       ],
                     ),
-                    Text(
-                      'Modifier le ticket',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(height: 16.0),
-                    EditTicketForm(id: id, title: title, description: description, category: category, status: status),
-                    SizedBox(height: 16.0),
-                  ],
-                ),
+                  SizedBox(height: 16.0),
+                  ElevatedButton(
+                    onPressed: () async {
+                      if (_responseController.text.isNotEmpty) {
+                        // Mettre à jour le ticket avec la réponse dans Firebase
+                        await FirebaseFirestore.instance.collection('tickets').doc(id).update({
+                          'response': _responseController.text, // Ajouter la réponse
+                          'status': 'Résolu',
+                        });
+                      }
+                      Navigator.of(context).pop(); // Fermer le modal après l'enregistrement
+                    },
+                    child: Text('Enregistrer les modifications'),
+                  ),
+                ],
               ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
 
   void _deleteTicket(String id) async {
     await FirebaseFirestore.instance.collection('tickets').doc(id).delete();
   }
-
-  
-
 }
-
-// Les classes AddCategoryForm, AddTicketForm et EditTicketForm restent inchangées
-
 
 class AddCategoryForm extends StatefulWidget {
   @override
@@ -365,9 +613,109 @@ class _AddCategoryFormState extends State<AddCategoryForm> {
           ),
           SizedBox(height: 16.0),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               if (_formKey.currentState?.validate() ?? false) {
-                _addCategory();
+                await FirebaseFirestore.instance.collection('categories').add({
+                  'name': _nameController.text,
+                  'description': _descriptionController.text,
+                });
+                Navigator.of(context).pop(); // Fermer le modal
+              }
+            },
+            child: Text('Ajouter'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class AddTicketForm extends StatefulWidget {
+  final String? userId;
+
+  AddTicketForm({this.userId});
+
+  @override
+  _AddTicketFormState createState() => _AddTicketFormState();
+}
+
+class _AddTicketFormState extends State<AddTicketForm> {
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  String? _selectedCategory;
+  List<String> _categories = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCategories().then((categories) {
+      setState(() {
+        _categories = categories;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextFormField(
+            controller: _titleController,
+            decoration: InputDecoration(labelText: 'Titre'),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Le titre est requis';
+              }
+              return null;
+            },
+          ),
+          TextFormField(
+            controller: _descriptionController,
+            decoration: InputDecoration(labelText: 'Description'),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'La description est requise';
+              }
+              return null;
+            },
+          ),
+          DropdownButtonFormField<String>(
+            value: _selectedCategory,
+            hint: Text('Choisir une catégorie'),
+            items: _categories.map((category) {
+              return DropdownMenuItem<String>(
+                value: category,
+                child: Text(category),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                _selectedCategory = value;
+              });
+            },
+            validator: (value) {
+              if (value == null) {
+                return 'La catégorie est requise';
+              }
+              return null;
+            },
+          ),
+          SizedBox(height: 16.0),
+          ElevatedButton(
+            onPressed: () async {
+              if (_formKey.currentState?.validate() ?? false) {
+                await FirebaseFirestore.instance.collection('tickets').add({
+                  'title': _titleController.text,
+                  'description': _descriptionController.text,
+                  'category': _selectedCategory,
+                  'status': 'Soumis', // Définir le statut par défaut à "Soumis"
+                  'dateAdded': DateTime.now(),
+                  'userId': widget.userId, // Inclure l'ID de l'utilisateur ici
+                });
                 Navigator.of(context).pop(); // Fermer le modal
               }
             },
@@ -378,119 +726,18 @@ class _AddCategoryFormState extends State<AddCategoryForm> {
     );
   }
 
-  void _addCategory() async {
-    final name = _nameController.text;
-    final description = _descriptionController.text;
-
-    await FirebaseFirestore.instance.collection('categories').add({
-      'name': name,
-      'description': description,
-    });
+  Future<List<String>> _fetchCategories() async {
+    // Récupère les catégories depuis Firestore
+    final snapshot = await FirebaseFirestore.instance.collection('categories').get();
+    return snapshot.docs.map((doc) => doc['name'] as String).toList();
   }
 }
 
-class AddTicketForm extends StatefulWidget {
-  @override
-  _AddTicketFormState createState() => _AddTicketFormState();
+
+Future<List<String>> _fetchCategories() async {
+  final snapshot = await FirebaseFirestore.instance.collection('categories').get();
+  return snapshot.docs.map((doc) => doc['name'] as String).toList();
 }
-
-class _AddTicketFormState extends State<AddTicketForm> {
-  final _formKey = GlobalKey<FormState>();
-  final _titleController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  String? _selectedCategory;
-  String _status = 'Soumis';
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<QuerySnapshot>(
-      future: FirebaseFirestore.instance.collection('categories').get(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator());
-        }
-        if (!snapshot.hasData) {
-          return Center(child: Text('No categories available.'));
-        }
-        final categories = snapshot.data!.docs;
-
-        return Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextFormField(
-                controller: _titleController,
-                decoration: InputDecoration(labelText: 'Titre'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Le titre est requis';
-                  }
-                  return null;
-                },
-              ),
-              TextFormField(
-                controller: _descriptionController,
-                decoration: InputDecoration(labelText: 'Description'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'La description est requise';
-                  }
-                  return null;
-                },
-              ),
-              DropdownButtonFormField<String>(
-                value: _selectedCategory,
-                items: categories.map((doc) {
-                  return DropdownMenuItem<String>(
-                    value: doc.id,
-                    child: Text(doc['name']),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedCategory = value;
-                  });
-                },
-                decoration: InputDecoration(labelText: 'Catégorie'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'La catégorie est requise';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 16.0),
-              ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState?.validate() ?? false) {
-                    _addTicket();
-                    Navigator.of(context).pop(); // Fermer le modal
-                  }
-                },
-                child: Text('Ajouter'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _addTicket() async {
-    final title = _titleController.text;
-    final description = _descriptionController.text;
-
-    await FirebaseFirestore.instance.collection('tickets').add({
-      'title': title,
-      'description': description,
-      'dateAdded': FieldValue.serverTimestamp(),
-      'category': _selectedCategory,
-      'status': _status,
-    });
-  }
-}
-
 class EditTicketForm extends StatefulWidget {
   final String id;
   final String title;
@@ -498,7 +745,13 @@ class EditTicketForm extends StatefulWidget {
   final String category;
   final String status;
 
-  EditTicketForm({required this.id, required this.title, required this.description, required this.category, required this.status});
+  EditTicketForm({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.category,
+    required this.status,
+  });
 
   @override
   _EditTicketFormState createState() => _EditTicketFormState();
@@ -509,7 +762,7 @@ class _EditTicketFormState extends State<EditTicketForm> {
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
   String? _selectedCategory;
-  String _status = 'Résolu'; // Set the default status to "Résolu"
+  List<String> _categories = [];
 
   @override
   void initState() {
@@ -517,90 +770,64 @@ class _EditTicketFormState extends State<EditTicketForm> {
     _titleController = TextEditingController(text: widget.title);
     _descriptionController = TextEditingController(text: widget.description);
     _selectedCategory = widget.category;
+    _fetchCategories().then((categories) {
+      setState(() {
+        _categories = categories;
+      });
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<QuerySnapshot>(
-      future: FirebaseFirestore.instance.collection('categories').get(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator());
-        }
-        if (!snapshot.hasData) {
-          return Center(child: Text('No categories available.'));
-        }
-        final categories = snapshot.data!.docs;
-
-        return Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextFormField(
-                controller: _titleController,
-                decoration: InputDecoration(labelText: 'Titre'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Le titre est requis';
-                  }
-                  return null;
-                },
-              ),
-              TextFormField(
-                controller: _descriptionController,
-                decoration: InputDecoration(labelText: 'Description'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'La description est requise';
-                  }
-                  return null;
-                },
-              ),
-              DropdownButtonFormField<String>(
-                value: _selectedCategory,
-                items: categories.map((doc) {
-                  return DropdownMenuItem<String>(
-                    value: doc.id,
-                    child: Text(doc['name']),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedCategory = value;
-                  });
-                },
-                decoration: InputDecoration(labelText: 'Catégorie'),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'La catégorie est requise';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 16.0),
-              ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState?.validate() ?? false) {
-                    _updateTicketStatus(widget.id, _status); // Update status to "Résolu"
-                    Navigator.of(context).pop(); // Fermer le modal
-                  }
-                },
-                child: Text('Modifier'),
-              ),
-            ],
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextFormField(
+            controller: _titleController,
+            decoration: InputDecoration(labelText: 'Titre'),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Le titre est requis';
+              }
+              return null;
+            },
           ),
-        );
-      },
+          TextFormField(
+            controller: _descriptionController,
+            decoration: InputDecoration(labelText: 'Description'),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'La description est requise';
+              }
+              return null;
+            },
+          ),
+          DropdownButtonFormField<String>(
+            value: _selectedCategory,
+            hint: Text('Choisir une catégorie'),
+            items: _categories.map((category) {
+              return DropdownMenuItem<String>(
+                value: category,
+                child: Text(category),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                _selectedCategory = value;
+              });
+            },
+            validator: (value) {
+              if (value == null) {
+                return 'La catégorie est requise';
+              }
+              return null;
+            },
+          ),
+        
+        ],
+      ),
     );
-  }
-
-  void _updateTicketStatus(String id, String status) async {
-    await FirebaseFirestore.instance.collection('tickets').doc(id).update({
-      'title': _titleController.text,
-      'description': _descriptionController.text,
-      'category': _selectedCategory,
-      'status': status,
-    });
   }
 }

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tick_box/pages/ticketsPage.dart';
 import 'accueil_page.dart';
-import 'formateur_page.dart';
 import 'apprenant_page.dart';
 import 'inscription_page.dart';
 
@@ -40,9 +40,9 @@ class _LoginPageState extends State<LoginPage> {
           if (userRole == 'admin') {
             Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => AccueilPage()));
           } else if (userRole == 'formateur') {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => FormateurPage()));
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => TicketsPage()));
           } else {
-            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => ApprenantPage()));
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => TicketsPage()));
           }
 
           ScaffoldMessenger.of(context).showSnackBar(
