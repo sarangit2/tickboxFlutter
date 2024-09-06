@@ -17,9 +17,33 @@ class _InscriptionPageState extends State<InscriptionPage> {
   final TextEditingController _telephoneController = TextEditingController();
   
   String _selectedRole = 'apprenant'; // Valeur par défaut
+  List<String> _roles = []; // Liste des rôles
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchRoles(); // Charger les rôles lorsque le widget est initialisé
+  }
+
+Future<void> _fetchRoles() async {
+  try {
+    final roleSnapshot = await _firestore.collection('roles').get();
+    if (roleSnapshot.docs.isEmpty) {
+      print('Aucun rôle trouvé dans la collection');
+    } else {
+      final roles = roleSnapshot.docs.map((doc) => doc.id).toList();
+      setState(() {
+        _roles = roles;
+      });
+      print('Rôles récupérés: $_roles');
+    }
+  } catch (e) {
+    print('Erreur lors de la récupération des rôles: $e');
+  }
+}
 
   Future<void> _registerUser() async {
     if (_formKey.currentState?.validate() ?? false) {
@@ -118,7 +142,7 @@ class _InscriptionPageState extends State<InscriptionPage> {
               SizedBox(height: 16),
               _buildTextFormField(
                 _prenomController,
-                'Entrer le prenom',
+                'Entrer le prénom',
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Veuillez entrer votre prénom';
@@ -176,7 +200,7 @@ class _InscriptionPageState extends State<InscriptionPage> {
                   ),
                   contentPadding: EdgeInsets.symmetric(vertical: 20, horizontal: 20),
                 ),
-                items: ['admin', 'formateur', 'apprenant'].map((role) {
+                items: _roles.map((role) {
                   return DropdownMenuItem<String>(
                     value: role,
                     child: Text(role),

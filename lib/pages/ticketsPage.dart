@@ -3,33 +3,64 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:tick_box/pages/chatPage.dart';
 
+class UserData {
+  final String name;
+  final String email;
+  final String role;
+
+  UserData({
+    required this.name,
+    required this.email,
+    required this.role,
+  });
+}
+
 class TicketsPage extends StatelessWidget {
   final Color primaryColor = Color(0xFF16335F); // Couleur #16335F
   final Color greenColor = Colors.green;
   final Color orangeColor = Colors.orange;
   final Color redColor = Colors.red;
-// Récupérer les informations de l'utilisateur connecté
-    final user = FirebaseAuth.instance.currentUser;
 
   Future<String> _getUserRole() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      // Récupérer le rôle de l'utilisateur depuis Firestore
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('USERS').doc(user.uid).get();
+      return userDoc['role'] ?? 'apprenant';
+    } else {
+      return 'apprenant'; // Rôle par défaut si l'utilisateur n'est pas connecté
+    }
+  }
+
+  // Méthode pour récupérer les informations utilisateur
+  Future<UserData> _fetchUserData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .get();
-      final role = userDoc['role'];
-      return role;
+      
+      if (userDoc.exists) {
+        final data = userDoc.data()!;
+        return UserData(
+          name: data['displayName'] ?? '',
+          email: data['email'] ?? '',
+          role: data['role'] ?? 'apprenant', // Default to 'apprenant'
+        );
+      } else {
+        return UserData(name: '', email: '', role: 'apprenant');
+      }
     }
-    return 'apprenant'; // Default to 'apprenant' if no user is found
+    return UserData(name: '', email: '', role: 'apprenant');
   }
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: primaryColor,
+       
         title: Text('Tickets'),
         centerTitle: true,
         actions: [
@@ -47,149 +78,181 @@ class TicketsPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             FutureBuilder<String>(
-  future: _getUserRole(),
-  builder: (context, snapshot) {
-    if (snapshot.connectionState == ConnectionState.waiting) {
-      return Center(child: CircularProgressIndicator());
-    }
-    final role = snapshot.data ?? 'apprenant';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-          _buildProfileSection(user, context),
-        _buildCategorySection(context, role),
-       
-        SizedBox(height: 16.0),
-        _buildTicketSection(context, role),
-      ],
-    );
-  },
-),
-
-           
-          ],
-        ),
-      ),
-      bottomNavigationBar: _buildBottomNavigationBar(),
-    );
-  }
-
-  
- Widget _buildProfileSection(User? user, BuildContext context) {
-    return Card(
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundImage: AssetImage('assets/profile_pic.png'), // Ajoutez votre image de profil ici
-            ),
-            SizedBox(width: 16.0),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  user?.displayName ?? '',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),
-                ),
-                Text(user?.email ?? 'Email de l\'utilisateur', style: TextStyle(color: Colors.black54)),
-                SizedBox(height: 8.0),
-                Text(
-                  'Gestion des tickets',
-                  style: TextStyle(color: Colors.black),
-                ),
-              ],
-            ),
-            Spacer(),
-            IconButton(
-              icon: Icon(Icons.remove_red_eye, color: primaryColor),
-              onPressed: () {
-                _showUserDetailsDialog(context, user);
+              future: _getUserRole(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text('Erreur de récupération du rôle'));
+                }
+                final role = snapshot.data ?? 'apprenant';
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildProfileSection(context),
+                    _buildCategorySection(context, role),
+                    SizedBox(height: 16.0),
+                    _buildTicketSection(context, role),
+                  ],
+                );
               },
             ),
           ],
         ),
       ),
-    );
-  }
+     bottomNavigationBar: FutureBuilder<String>(
+      future: _getUserRole(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return BottomNavigationBar(
+            items: [
+              BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
+              BottomNavigationBarItem(icon: Icon(Icons.assignment), label: 'Tickets'),
+              BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Chat'),
+              BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+            ],
+          );
+        }
+        if (snapshot.hasError) {
+          return BottomNavigationBar(
+            items: [
+              BottomNavigationBarItem(icon: Icon(Icons.assignment), label: 'Tickets'),
+              BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Chat'),
+              BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+            ],
+          );
+        }
+        final role = snapshot.data ?? 'apprenant';
+        return _buildBottomNavigationBar(role);
+      },
+    ),
+  );
+}
 
 
- void _showUserDetailsDialog(BuildContext context, User? user) {
-    if (user == null) return;
+  
+Widget _buildProfileSection(BuildContext context) {
+  final user = FirebaseAuth.instance.currentUser;
+  return Card(
+    color: Colors.white,
+    child: Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 30,
+            backgroundImage: AssetImage('assets/profile_pic.png'), // Ajoutez votre image de profil ici
+          ),
+          SizedBox(width: 16.0),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                user?.displayName ?? '',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),
+              ),
+              Text(user?.email ?? 'Email de l\'utilisateur', style: TextStyle(color: Colors.black54)),
+              SizedBox(height: 8.0),
+              Text(
+                'Gestion des tickets',
+                style: TextStyle(color: Colors.black),
+              ),
+            ],
+          ),
+          Spacer(),
+          IconButton(
+            icon: Icon(Icons.remove_red_eye, color: primaryColor),
+            onPressed: () {
+              _showUserDetailsDialog(context);
+            },
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
-    final TextEditingController nameController = TextEditingController(text: user.displayName);
-    final TextEditingController emailController = TextEditingController(text: user.email);
 
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    IconButton(
-                      icon: Icon(Icons.close, color: Colors.black),
-                      onPressed: () {
-                        Navigator.of(context).pop(); // Fermer le modal
-                      },
-                    ),
-                  ],
-                ),
-                Text(
-                  'Détails de l\'utilisateur',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                SizedBox(height: 16.0),
-                TextField(
-                  controller: nameController,
-                  decoration: InputDecoration(labelText: 'Nom'),
-                ),
-                SizedBox(height: 8.0),
-                TextField(
-                  controller: emailController,
-                  decoration: InputDecoration(labelText: 'Email'),
-                ),
-                SizedBox(height: 16.0),
-                ElevatedButton(
-                  onPressed: () async {
-                    // Mettre à jour les détails de l'utilisateur
-                    final updatedName = nameController.text;
-                    final updatedEmail = emailController.text;
+void _showUserDetailsDialog(BuildContext context) async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) return;
 
-                    try {
+  // Récupérer les informations utilisateur
+  final userData = await _fetchUserData();
+
+  final TextEditingController nameController = TextEditingController(text: userData.name);
+  final TextEditingController emailController = TextEditingController(text: userData.email);
+
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return Dialog(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.close, color: Colors.black),
+                    onPressed: () {
+                      Navigator.of(context).pop(); // Fermer le modal
+                    },
+                  ),
+                ],
+              ),
+              Text(
+                'Détails de l\'utilisateur',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 16.0),
+              TextField(
+                controller: nameController,
+                decoration: InputDecoration(labelText: 'Nom'),
+              ),
+              SizedBox(height: 8.0),
+              TextField(
+                controller: emailController,
+                decoration: InputDecoration(labelText: 'Email'),
+              ),
+              SizedBox(height: 16.0),
+              ElevatedButton(
+                onPressed: () async {
+                  final updatedName = nameController.text;
+                  final updatedEmail = emailController.text;
+
+                  try {
+                    if (user != null) {
+                      // Mise à jour dans Firebase Auth
                       await user.updateProfile(displayName: updatedName);
                       await user.updateEmail(updatedEmail);
 
-                      // Optionnel : Mettre à jour dans Firestore aussi
+                      // Mise à jour dans Firestore
                       await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
                         'displayName': updatedName,
                         'email': updatedEmail,
+                        'role': userData.role, // Conservez le rôle existant
                       });
 
                       Navigator.of(context).pop(); // Fermer le modal
-                    } catch (e) {
-                      // Gérer les erreurs
-                      print(e);
                     }
-                  },
-                  child: Text('Sauvegarder'),
-                ),
-              ],
-            ),
+                  } catch (e) {
+                    print(e); // Gérer les erreurs
+                  }
+                },
+                child: Text('Sauvegarder'),
+              ),
+            ],
           ),
-        );
-      },
-    );
-  }
-
+        ),
+      );
+    },
+  );
+}
 
 
 Widget _buildCategorySection(BuildContext context, String role) {
@@ -201,7 +264,7 @@ Widget _buildCategorySection(BuildContext context, String role) {
         'Category',
         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
       ),
-     
+      if (role == 'formateur' || role =='admin') // Vérifie si le rôle n'est pas 'apprenant'
         IconButton(
           icon: Icon(Icons.add_circle, color: greenColor),
           onPressed: () {
@@ -223,7 +286,7 @@ Widget _buildTicketSection(BuildContext context, String role) {
             'Tickets',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
           ),
-          if (role == 'apprenant' || role == 'admin')
+          if (role == 'apprenant')
             IconButton(
               icon: Icon(Icons.add_circle, color: greenColor),
               onPressed: () {
@@ -243,80 +306,84 @@ Widget _buildTicketSection(BuildContext context, String role) {
           }
           final tickets = snapshot.data!.docs;
 
-          return DataTable(
-            columns: [
-              DataColumn(label: Text('Titre')),
-              DataColumn(label: Text('Date')),
-              DataColumn(label: Text('Statut')),
-              DataColumn(label: Text('Actions')),
-            ],
-            rows: tickets.map((ticket) {
-              final status = ticket['status'];
-              final statusColor = _getStatusColor(status);
+          return Container(
+            width: double.infinity,  // Ajout de la largeur infinie ici
+            child: DataTable(
+              columns: [
+                DataColumn(label: Text('Titre')),
+                DataColumn(label: Text('Date')),
+                DataColumn(label: Text('Statut')),
+                DataColumn(label: Text('Actions')),
+              ],
+              rows: tickets.map((ticket) {
+                final status = ticket['status'];
+                final statusColor = _getStatusColor(status);
 
-              return DataRow(
-                cells: [
-                  DataCell(Text(ticket['title'])),
-                  DataCell(Text(ticket['dateAdded']?.toDate()?.toLocal()?.toString() ?? 'N/A')),
-                  DataCell(
-                    Container(
-                      color: statusColor,
-                      padding: EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
-                      child: Text(
-                        status,
-                        style: TextStyle(color: Colors.white),
+                return DataRow(
+                  cells: [
+                    DataCell(Text(ticket['title'])),
+                    DataCell(Text(ticket['dateAdded']?.toDate()?.toLocal()?.toString() ?? 'N/A')),
+                    DataCell(
+                      Container(
+                        color: statusColor,
+                        padding: EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+                        child: Text(
+                          status,
+                          style: TextStyle(color: Colors.white),
+                        ),
                       ),
                     ),
-                  ),
-                  DataCell(
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: Icon(Icons.visibility, color: primaryColor),
-                          onPressed: () {
-                            _showTicketDetailsDialog(
-                              context,
-                              ticket.id,
-                              ticket['title'],
-                              ticket['description'],
-                              ticket['category'],
-                              status,
-                            );
-                          },
-                        ),
-                        if (status == 'Résolu')
+                    DataCell(
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
                           IconButton(
-                            icon: Icon(Icons.chat, color: Colors.blue),
+                            icon: Icon(Icons.visibility, color: primaryColor),
                             onPressed: () {
-                              _startChat(context, ticket['userId']); // Remplacez 'userId' par l'ID utilisateur du ticket
+                              _showTicketDetailsDialog(
+                                context,
+                                ticket.id,
+                                ticket['title'],
+                                ticket['description'],
+                                ticket['category'],
+                                status,
+                              );
                             },
                           ),
-                        IconButton(
-                          icon: Icon(Icons.edit, color: status == 'Résolu' ? Colors.grey : primaryColor),
-                          onPressed: status == 'Résolu' ? null : () {
-                            _showEditTicketDialog(
-                              context,
-                              ticket.id,
-                              ticket['title'],
-                              ticket['description'],
-                              ticket['category'],
-                              status,
-                            );
-                          },
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.delete, color: redColor),
-                          onPressed: () {
-                            _deleteTicket(ticket.id);
-                          },
-                        ),
-                      ],
+                          if (status == 'Résolu')
+                            IconButton(
+                              icon: Icon(Icons.chat, color: Colors.blue),
+                              onPressed: () {
+                                _startChat(context, ticket['userId']); // Remplacez 'userId' par l'ID utilisateur du ticket
+                              },
+                            ),
+                          if (role == 'formateur')
+                            IconButton(
+                              icon: Icon(Icons.edit, color: status == 'Résolu' ? Colors.grey : primaryColor),
+                              onPressed: status == 'Résolu' ? null : () {
+                                _showEditTicketDialog(
+                                  context,
+                                  ticket.id,
+                                  ticket['title'],
+                                  ticket['description'],
+                                  ticket['category'],
+                                  status,
+                                );
+                              },
+                            ),
+                          IconButton(
+                            icon: Icon(Icons.delete, color: redColor),
+                            onPressed: () {
+                              _deleteTicket(ticket.id);
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              );
-            }).toList(),
+                  ],
+                );
+              }).toList(),
+            ),
           );
         },
       ),
@@ -391,18 +458,21 @@ void _startChat(BuildContext context, String userId) {
   }
 
 
-  Widget _buildBottomNavigationBar() {
-    return BottomNavigationBar(
-      type: BottomNavigationBarType.fixed,
-      selectedItemColor: primaryColor,
-      items: [
+
+
+  Widget _buildBottomNavigationBar(String role) {
+  return BottomNavigationBar(
+    type: BottomNavigationBarType.fixed,
+    selectedItemColor: primaryColor,
+    items: [
+      if (role == 'admin') 
         BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
-        BottomNavigationBarItem(icon: Icon(Icons.assignment), label: 'Tickets'),
-        BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Chat'),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-      ],
-    );
-  }
+      BottomNavigationBarItem(icon: Icon(Icons.assignment), label: 'Tickets'),
+      BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Chat'),
+      BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+    ],
+  );
+}
 
   void _showAddCategoryDialog(BuildContext context) {
     showDialog(

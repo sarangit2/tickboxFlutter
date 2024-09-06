@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:tick_box/pages/ticketsPage.dart';
-import 'accueil_page.dart';
-import 'apprenant_page.dart';
-import 'inscription_page.dart';
+import 'ticketsPage.dart'; // Assurez-vous que cette importation est correcte
+import 'accueil_page.dart'; // Assurez-vous que cette importation est correcte
+import 'inscription_page.dart'; // Assurez-vous que cette importation est correcte
 
 class LoginPage extends StatefulWidget {
   @override
@@ -15,7 +14,6 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final FirebaseAuth _auth = FirebaseAuth.instance;
-
   final _formKey = GlobalKey<FormState>();
 
   Future<void> _loginUser() async {
@@ -35,6 +33,10 @@ class _LoginPageState extends State<LoginPage> {
           // Récupérer le rôle de l'utilisateur depuis Firestore
           DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('USERS').doc(user.uid).get();
           String userRole = userDoc['role'];
+
+          // Afficher le rôle récupéré pour débogage
+          print('Utilisateur connecté : ${user.email}');
+          print('Rôle de l\'utilisateur : $userRole');
 
           // Rediriger vers la page appropriée en fonction du rôle
           if (userRole == 'admin') {
@@ -85,22 +87,12 @@ class _LoginPageState extends State<LoginPage> {
             child: ListView(
               shrinkWrap: true,
               children: [
-                const SizedBox(height: 32),
-                const Text(
-                  'S\'authentifier',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
                 const SizedBox(height: 24),
                 Center(
                   child: Image.asset(
-                    'assets/login.png',
-                    height: 150,
-                    width: 150,
+                    'assets/tickbox.png',
+                    height: 130,
+                    width: 130,
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -113,7 +105,6 @@ class _LoginPageState extends State<LoginPage> {
                       if (value == null || value.isEmpty) {
                         return 'Veuillez entrer un email';
                       }
-                      // Validation simple d'email
                       if (!RegExp(r'\S+@\S+\.\S+').hasMatch(value)) {
                         return 'Veuillez entrer un email valide';
                       }
@@ -144,7 +135,7 @@ class _LoginPageState extends State<LoginPage> {
                   child: ElevatedButton(
                     onPressed: _loginUser,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF16335F), // Nouvelle couleur de fond du bouton
+                      backgroundColor: Color(0xFF16335F),
                       padding: EdgeInsets.symmetric(vertical: 12, horizontal: 40),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -179,7 +170,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                 ),
-                SizedBox(height: 32), // Pour donner un peu d'espace en bas
+                SizedBox(height: 32),
               ],
             ),
           ),
